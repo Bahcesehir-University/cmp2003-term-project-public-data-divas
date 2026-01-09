@@ -12,7 +12,7 @@ namespace {
 
 struct Store {
     unordered_map<string, long long> zoneCount;
-    unordered_map<string, unordered_map<int, long long>> zoneHourCount;
+    unordered_map<string, unordered_map<int, long long> > zoneHourCount;
 };
 
 static unordered_map<const TripAnalyzer*, Store>& storage() {
@@ -24,39 +24,36 @@ static Store& getStore(const TripAnalyzer* self) {
     return storage()[self];
 }
 
-static inline bool isWS(char c) {
+static bool isWS(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
 static string trimCopy(const string& s) {
     size_t i = 0;
-    while (i < s.size() && isWS(s[i])) ++i;
+    while (i < s.size() && isWS(s[i])) i++;
     if (i == s.size()) return "";
 
     size_t j = s.size();
-    while (j > i && isWS(s[j - 1])) --j;
+    while (j > i && isWS(s[j - 1])) j--;
 
     return s.substr(i, j - i);
 }
 
 static void splitCSV(const string& line, vector<string>& out) {
     out.clear();
-    out.reserve(8);
-
     size_t start = 0;
     while (true) {
         size_t comma = line.find(',', start);
         if (comma == string::npos) {
-            out.emplace_back(line.substr(start));
+            out.push_back(line.substr(start));
             break;
         }
-        out.emplace_back(line.substr(start, comma - start));
+        out.push_back(line.substr(start, comma - start));
         start = comma + 1;
     }
 }
 
 static bool parseHour(const string& raw, int& hour) {
-    // keep same behavior: trim, then expect hour at positions 11-12
     string t = trimCopy(raw);
     if (t.size() < 13) return false;
 
@@ -71,7 +68,8 @@ static bool parseHour(const string& raw, int& hour) {
     return true;
 }
 
-} // namespace
+} 
+
 
 void TripAnalyzer::ingestFile(const string& csvPath) {
     Store& st = getStore(this);
@@ -82,11 +80,9 @@ void TripAnalyzer::ingestFile(const string& csvPath) {
     if (!fin) return;
 
     string line;
-    if (!getline(fin, line)) return; // skip header (same)
+    if (!getline(fin, line)) return; 
 
     vector<string> cols;
-    cols.reserve(8);
-
     while (getline(fin, line)) {
         if (line.empty()) continue;
 
@@ -100,8 +96,8 @@ void TripAnalyzer::ingestFile(const string& csvPath) {
         int hour = 0;
         if (!parseHour(dt, hour)) continue;
 
-        ++st.zoneCount[zone];
-        ++st.zoneHourCount[zone][hour];
+        st.zoneCount[zone]++;
+        st.zoneHourCount[zone][hour]++;
     }
 }
 
@@ -110,10 +106,8 @@ vector<ZoneCount> TripAnalyzer::topZones(int k) const {
     if (k <= 0) return out;
 
     const Store& st = getStore(this);
-    out.reserve(st.zoneCount.size());
-
-    for (const auto& [zone, cnt] : st.zoneCount) {
-        out.push_back(ZoneCount{zone, cnt});
+    for (const auto& p : st.zoneCount) {
+        out.push_back(ZoneCount{p.first, p.second});
     }
 
     sort(out.begin(), out.end(),
@@ -131,15 +125,9 @@ vector<SlotCount> TripAnalyzer::topBusySlots(int k) const {
     if (k <= 0) return out;
 
     const Store& st = getStore(this);
-
-    // optional micro-opt: reserve approximate size
-    size_t approx = 0;
-    for (const auto& z : st.zoneHourCount) approx += z.second.size();
-    out.reserve(approx);
-
-    for (const auto& [zone, hm] : st.zoneHourCount) {
-        for (const auto& [hour, cnt] : hm) {
-            out.push_back(SlotCount{zone, hour, cnt});
+    for (const auto& z : st.zoneHourCount) {
+        for (const auto& h : z.second) {
+            out.push_back(SlotCount{z.first, h.first, h.second});
         }
     }
 
